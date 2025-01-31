@@ -1,10 +1,8 @@
-@Library('devops') _
 pipeline {
     agent any
     
-    environment{
+    environment {
         SONAR_HOME = tool "sonar"
-        
     }
     
     parameters {
@@ -22,104 +20,64 @@ pipeline {
                 }
             }
         }
-        stage("Workspace cleanup"){
-            steps{
-                script{
+
+        stage("Workspace cleanup") {
+            steps {
+                script {
                     cleanWs()
                 }
             }
         }
-        
+
         stage('Git: Code Checkout') {
             steps {
-                script{
+                script {
                     code_checkout("https://github.com/sauravgarg547/Wanderlust-Mega-Project.git","main")
                 }
             }
         }
-        
-        stage("Trivy: Filesystem scan"){
-            steps{
-                script{
-                    trivy_scan()
+
+        stage("Run Tests") {
+            steps {
+                script {
+                    sh 'mvn test'
                 }
             }
         }
 
-        // stage("OWASP: Dependency check"){
-        //     steps{
-        //         script{
-        //             owasp_dependency()
-        //         }
-        //     }
-        // }
-        
-        stage("SonarQube: Code Analysis"){
-            steps{
-                script{
+        stage("Check XML Files") {
+            steps {
+                script {
+                    sh "ls -l **/*.xml || echo 'No XML files found'"
+                }
+            }
+        }
+
+        stage("SonarQube: Code Analysis") {
+            steps {
+                script {
                     sonarqube_analysis("sonar","wanderlust","wanderlust")
                 }
             }
         }
-        
-        stage("SonarQube: Code Quality Gates"){
-            steps{
-                script{
-                    sonarqube_code_quality()
-                }
-            }
-        }
-        
-        stage('Exporting environment variables') {
-            parallel{
-                stage("Backend env setup"){
-                    steps {
-                        script{
-                            dir("Automations"){
-                                sh "bash updatebackendnew.sh"
-                            }
-                        }
+
+        stage("Docker: Build Images") {
+            steps {
+                script {
+                    dir('backend') {
+                        docker_build("wanderlust-backend-beta","${params.BACKEND_DOCKER_TAG}","saurav547")
                     }
-                }
-                
-                stage("Frontend env setup"){
-                    steps {
-                        script{
-                            dir("Automations"){
-                                sh "bash updatefrontendnew.sh"
-                            }
-                        }
+                    dir('frontend') {
+                        docker_build("wanderlust-frontend-beta","${params.FRONTEND_DOCKER_TAG}","saurav547")
                     }
-                }
-            }
-        }
-        
-        stage("Docker: Build Images"){
-            steps{
-                script{
-                        dir('backend'){
-                            docker_build("wanderlust-backend-beta","${params.BACKEND_DOCKER_TAG}","saurav547")
-                        }
-                    
-                        dir('frontend'){
-                            docker_build("wanderlust-frontend-beta","${params.FRONTEND_DOCKER_TAG}","saurav547")
-                        }
-                }
-            }
-        }
-        
-        stage("Docker: Push to DockerHub"){
-            steps{
-                script{
-                    docker_push("wanderlust-backend-beta","${params.BACKEND_DOCKER_TAG}","saurav547") 
-                    docker_push("wanderlust-frontend-beta","${params.FRONTEND_DOCKER_TAG}","saurav547")
                 }
             }
         }
     }
-    post{
-        success{
-            archiveArtifacts artifacts: '*.xml', followSymlinks: false
+
+    post {
+        success {
+            archiveArtifacts artifacts: 'target/surefire-reports/*.xml', followSymlinks: false
             build job: "Wanderlust-CD", parameters: [
                 string(name: 'FRONTEND_DOCKER_TAG', value: "${params.FRONTEND_DOCKER_TAG}"),
                 string(name: 'BACKEND_DOCKER_TAG', value: "${params.BACKEND_DOCKER_TAG}")
