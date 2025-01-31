@@ -25,7 +25,7 @@ COPY --from=backend-builder /app .
 COPY .env.docker .env
 
 # Port
-EXPOSE 8000
+EXPOSE 8080
 
 # App
 CMD ["npm", "start"]
