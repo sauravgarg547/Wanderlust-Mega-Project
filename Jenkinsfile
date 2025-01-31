@@ -4,7 +4,7 @@ pipeline {
     
     environment{
         SONAR_HOME = tool "sonar"
-        NVD_API_KEY = credentials('de893c37-fe74-4116-87c7-f2069c0fadc4') // If stored in Jenkins Credentials
+        
     }
     
     parameters {
